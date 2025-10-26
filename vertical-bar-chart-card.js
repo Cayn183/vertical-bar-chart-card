@@ -2,22 +2,26 @@ class VerticalBarChartCard extends HTMLElement {
   setConfig(config) {
     this.config = config;
     this.attachShadow({ mode: "open" });
-    // Grundlegendes Styling
+    // <--- angepasstes und knappes, solides CSS, Balken funktionieren mit Prozenten! --->
     this.shadowRoot.innerHTML = `
       <style>
         .bar-chart {
           display: flex;
           flex-direction: row;
           align-items: flex-end;
-          height: 150px;
           gap: 24px;
           padding: 12px;
+          height: 160px; /* WICHTIG: Höhe für Prozent-Balken */
         }
         .bar-container {
-          flex: 1;
           display: flex;
           flex-direction: column;
           align-items: center;
+          width: 60px;
+        }
+        .bar-value {
+          font-size: 14px;
+          margin-bottom: 4px;
         }
         .bar {
           width: 32px;
@@ -25,16 +29,14 @@ class VerticalBarChartCard extends HTMLElement {
           border-radius: 6px 6px 0 0;
           transition: height 0.5s;
           margin-bottom: 8px;
+          /* NEU: Damit Balken am 'foot' beginnen */
+          display: flex;
+          align-items: flex-end;
         }
         .bar-label {
           font-size: 12px;
           text-align: center;
           word-break: break-all;
-        }
-        .bar-value {
-          font-size: 13px;
-          font-weight: bold;
-          margin-bottom: 4px;
         }
       </style>
       <div class="bar-chart"></div>
@@ -53,16 +55,15 @@ class VerticalBarChartCard extends HTMLElement {
     const bars = [];
     let maxValue = 0;
 
-    // Werte und max. Wert bestimmen
+    // Werte analysieren
     for (const entity of this.config.entities) {
       const stateObj = this._hass.states[entity.entity];
       if (!stateObj) continue;
       const value = Number(stateObj.state);
       if (!isNaN(value)) maxValue = Math.max(maxValue, value);
     }
-    if (maxValue === 0) maxValue = 1; // Division durch 0 vermeiden
+    if (maxValue === 0) maxValue = 1; // 0-Division vermeiden
 
-    // Balken erzeugen
     for (const entity of this.config.entities) {
       const stateObj = this._hass.states[entity.entity];
       if (!stateObj) continue;
@@ -79,16 +80,11 @@ class VerticalBarChartCard extends HTMLElement {
         </div>
       `);
     }
-
-    // Ausgabe
     this.chartEl.innerHTML = bars.join("");
   }
 
-  // Erforderlich für Lovelace
   getCardSize() {
     return 3;
   }
 }
-
-// Custom-Element registrieren
 customElements.define('vertical-bar-chart-card', VerticalBarChartCard);
