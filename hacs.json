@@ -2,7 +2,5 @@
 "domain": "vertical_bar_chart_card",
 "name": "Vertical Bar Chart Card",
 "version": "0.1.0",
-"content_in_root": true,
-"country": "DE",
 "codeowners": ["@Cayn"]
 }
