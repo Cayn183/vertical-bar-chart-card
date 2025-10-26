@@ -2,7 +2,6 @@ class VerticalBarChartCard extends HTMLElement {
   setConfig(config) {
     this.config = config;
     this.attachShadow({ mode: "open" });
-    // <--- angepasstes und knappes, solides CSS, Balken funktionieren mit Prozenten! --->
     this.shadowRoot.innerHTML = `
       <style>
         .bar-chart {
@@ -11,7 +10,7 @@ class VerticalBarChartCard extends HTMLElement {
           align-items: flex-end;
           gap: 24px;
           padding: 12px;
-          height: 160px; /* WICHTIG: Höhe für Prozent-Balken */
+          height: 160px; /* Notwendig für %-Balkenhöhen */
         }
         .bar-container {
           display: flex;
@@ -29,7 +28,6 @@ class VerticalBarChartCard extends HTMLElement {
           border-radius: 6px 6px 0 0;
           transition: height 0.5s;
           margin-bottom: 8px;
-          /* NEU: Damit Balken am 'foot' beginnen */
           display: flex;
           align-items: flex-end;
         }
@@ -55,15 +53,16 @@ class VerticalBarChartCard extends HTMLElement {
     const bars = [];
     let maxValue = 0;
 
-    // Werte analysieren
+    // Maximalwert ermitteln
     for (const entity of this.config.entities) {
       const stateObj = this._hass.states[entity.entity];
       if (!stateObj) continue;
       const value = Number(stateObj.state);
       if (!isNaN(value)) maxValue = Math.max(maxValue, value);
     }
-    if (maxValue === 0) maxValue = 1; // 0-Division vermeiden
+    if (maxValue === 0) maxValue = 1;
 
+    // Balken erzeugen
     for (const entity of this.config.entities) {
       const stateObj = this._hass.states[entity.entity];
       if (!stateObj) continue;
