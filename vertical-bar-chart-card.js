@@ -1,118 +1,94 @@
 class VerticalBarChartCard extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-  }
-
   setConfig(config) {
-    if (!config || !config.entities || !Array.isArray(config.entities)) {
-      throw new Error('VerticalBarChartCard: config.entities ist erforderlich und muss ein Array sein');
-    }
     this.config = config;
-    this._max = (typeof config.max === 'number') ? config.max : 1000;
-    this._title = config.title ?? '';
-    this.render();
+    this.attachShadow({ mode: "open" });
+    // Grundlegendes Styling
+    this.shadowRoot.innerHTML = `
+      <style>
+        .bar-chart {
+          display: flex;
+          flex-direction: row;
+          align-items: flex-end;
+          height: 150px;
+          gap: 24px;
+          padding: 12px;
+        }
+        .bar-container {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .bar {
+          width: 32px;
+          background: #4285f4;
+          border-radius: 6px 6px 0 0;
+          transition: height 0.5s;
+          margin-bottom: 8px;
+        }
+        .bar-label {
+          font-size: 12px;
+          text-align: center;
+          word-break: break-all;
+        }
+        .bar-value {
+          font-size: 13px;
+          font-weight: bold;
+          margin-bottom: 4px;
+        }
+      </style>
+      <div class="bar-chart"></div>
+    `;
+    this.chartEl = this.shadowRoot.querySelector(".bar-chart");
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._updateBars();
+    this._renderChart();
   }
 
-  getCardSize() {
-    // Höhe der Karte in Lovelace (optional, je nach Layout)
-    return 3;
-  }
+  _renderChart() {
+    if (!this._hass || !this.config || !Array.isArray(this.config.entities)) return;
 
-  render() {
-    const rows = (this.config.entities || []).map((e, idx) => {
-      const label = e.name ?? e.entity_id;
-      return `
-        <div class="row" data-index="${idx}">
-          <div class="label" title="${e.entity_id}">${label}</div>
-          <div class="bar-rail" aria-label="${e.entity_id}">
-            <div class="bar" style="width: 0%; background:${e.color ?? '#4caf50'}"></div>
-          </div>
-          <div class="value" id="value-${idx}">0</div>
+    const bars = [];
+    let maxValue = 0;
+
+    // Werte und max. Wert bestimmen
+    for (const entity of this.config.entities) {
+      const stateObj = this._hass.states[entity.entity];
+      if (!stateObj) continue;
+      const value = Number(stateObj.state);
+      if (!isNaN(value)) maxValue = Math.max(maxValue, value);
+    }
+    if (maxValue === 0) maxValue = 1; // Division durch 0 vermeiden
+
+    // Balken erzeugen
+    for (const entity of this.config.entities) {
+      const stateObj = this._hass.states[entity.entity];
+      if (!stateObj) continue;
+
+      const value = Number(stateObj.state);
+      const displayValue = isNaN(value) ? "-" : value;
+      const barHeight = isNaN(value) ? 0 : (value / maxValue) * 100;
+
+      bars.push(`
+        <div class="bar-container">
+          <div class="bar-value">${displayValue}</div>
+          <div class="bar" style="height: ${barHeight}%"></div>
+          <div class="bar-label">${entity.name || stateObj.attributes.friendly_name || entity.entity}</div>
         </div>
-      `;
-    }).join('');
+      `);
+    }
 
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host { display: block; }
-        .card {
-          padding: 8px;
-          border-radius: 12px;
-          background: var(--ha-card-background-color, #f5f5f5);
-          border: 1px solid rgba(0,0,0,.12);
-        }
-        .title {
-          font-weight: 600;
-          margin: 4px 0 8px;
-        }
-        .row {
-          display: grid;
-          grid-template-columns: 170px 1fr 60px;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 0;
-        }
-        .bar-rail {
-          height: 12px;
-          width: 100%;
-          background: #e0e0e0;
-          border-radius: 6px;
-          overflow: hidden;
-        }
-        .bar {
-          height: 100%;
-          width: 0%;
-          background: #4caf50;
-          transition: width 0.3s ease;
-        }
-        .label {
-          font-size: 14px;
-        }
-        .value {
-          text-align: right;
-          font-family: monospace;
-        }
-      </style>
-      <div class="card">
-        ${this._title ? `<div class="title">${this._title}</div>` : ''}
-        ${rows}
-      </div>
-    `;
-    // Referenzen sammeln
-    this._bars = Array.from(this.shadowRoot.querySelectorAll('.bar'));
-    this._values = Array.from(this.shadowRoot.querySelectorAll('.value'));
+    // Ausgabe
+    this.chartEl.innerHTML = bars.join("");
   }
 
-  _updateBars() {
-    if (!this._hass || !this.config) return;
-    const max = this._max;
-
-    this.config.entities.forEach((e, idx) => {
-      const entityId = e.entity_id;
-      const stateObj = this._hass.states[entityId];
-      let value = 0;
-      let unit = '';
-
-      if (stateObj) {
-        const st = parseFloat(stateObj.state);
-        value = Number.isFinite(st) ? st : 0;
-        unit = (stateObj.attributes && stateObj.attributes.unit_of_measurement) || (e.unit || '');
-      }
-
-      const pct = Math.max(0, Math.min(100, max > 0 ? (value / max) * 100 : 0));
-      if (this._bars[idx]) this._bars[idx].style.width = pct + '%';
-      if (this._values[idx]) {
-        const display = isNaN(value) ? '0' : value.toFixed(0);
-        this._values[idx].textContent = display + (unit ? ' ' + unit : '');
-      }
-    });
+  // Erforderlich für Lovelace
+  getCardSize() {
+    return 3;
   }
 }
 
+// Custom-Element registrieren
 customElements.define('vertical-bar-chart-card', VerticalBarChartCard);
